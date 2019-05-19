@@ -3,6 +3,7 @@ import time
 import pymysql
 import uuid
 import hashlib
+import json
 
 
 class MyTCPHandler(socketserver.BaseRequestHandler):
@@ -23,24 +24,46 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                     self.do_register(self.data)
                 elif self.data[0] == 'L':
                     self.do_login(self.data)
+                elif self.data[0] == 'S':
+                    self.show_customer()
+                elif self.data[0] == 'C':
+                    self.chat_each(self.data)
+
 
             except ConnectionResetError as e:
                 print('erro:', e)
                 break
 
     def __connect_dbs(self):
+        '''
+        连接数据库
+        :return:
+        '''
         db = pymysql.connect('localhost', 'root', '123456', 'chat_room', charset='utf8')
         return db
 
     def __create_uid(self):
+        '''
+        生成唯一uid
+        :return:
+        '''
         return str(uuid.uuid1())
 
-    def __create_id(self,string):
+    def __create_id(self, string):
+        '''
+        明文密码转密文
+        :param string: 明文密码
+        :return:
+        '''
         m = hashlib.md5(str(string).encode())
         return m.hexdigest()
 
     def do_register(self, data):
-        # db = self.__connect_dbs()
+        '''
+        处理注册操作
+        :param data: 用户注册信息
+        :return:
+        '''
         tmp = data.split(' ')
         name = tmp[1]
         passwd = tmp[2]
@@ -53,11 +76,12 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
             self.request.send('该用户已存在'.encode())
             return
         uuid = self.__create_uid()
-        # 用户注册存入customer_base数据库,记录uuid,用户名,密码,昵称
+        # 用户注册存入customer_base表,记录uuid,用户名,密码,昵称
         sql1 = "insert into customer_base (uuid,uid,password,nname) VALUES ('%s','%s','%s','%s')" % (
             uuid, name, passwd, nname)
-        # 用户注册同时存入customer_status数据库,记录uuid,用户名,在线状态;在登录功能中修改地址
-        sql2 = "insert into customer_statue (uuid,uid,nname,address) VALUES ('%s','%s','%s','%s')" % (uuid, name, nname,'outline')
+        # 用户注册同时存入customer_statue表,记录uuid,用户名,在线状态;在登录功能中修改地址
+        sql2 = "insert into customer_statue (uuid,uid,nname,address) VALUES ('%s','%s','%s','%s')" % (
+        uuid, name, nname, 'outline')
         try:
             cursor.execute(sql1)
             cursor.execute(sql2)
@@ -66,11 +90,11 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
         except Exception as e:
             self.db.rollback()
             self.request.send('注册失败'.encode())
-            # print(self.request)得到地址
+            print(self.request)#得到地址
             print(e)
 
     def do_login(self, data):
-        # 登录功能,更改在线状态,写入登录地址
+        '''登录功能,更改在线状态,写入登录地址'''
         tmp = data.split(' ')
         name = tmp[1]
         passwd = tmp[2]
@@ -87,10 +111,10 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
         sql_addr = 'select address from customer_statue where uid="%s"' % name
         cursor.execute(sql_addr)
         r = cursor.fetchone()
-        if  r[0] != 'outline':
+        if r[0] != 'outline':
             self.request.send('该用户已登录'.encode())
             return
-        # 将用户地址写入customer_status数据库,
+        # 将用户地址写入customer_status表,
         sql_status = "update customer_statue set address = '%s' where uid = '%s'" % (self.client_address[0], name)
         try:
             cursor.execute(sql_status)
@@ -99,6 +123,29 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
         except Exception as e:
             print(e)
             self.request.send('登录失败'.encode())
+
+    def show_customer(self):
+        '''
+        展示在线用户
+        :return:
+        '''
+        # 查询在线用户,查询customer_statue表
+        dict_online = {}
+        cursor = self.db.cursor()
+        sql_show = "select nname,address from customer_statue where address is not 'outline'"
+        cursor.execute(sql_show)
+        r = cursor.fetchall()
+        for item in r:
+            dict_online[item[0]] = item[1]
+        dict_send = json.dumps(dict_online)
+        self.request.send(dict_send.encode())
+
+
+    def chat_each(self,data):
+        tmp = data.split(' ')
+        send_addr =tmp[1]
+        msg = tmp[2]
+
 
 
 if __name__ == '__main__':

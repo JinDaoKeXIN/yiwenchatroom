@@ -28,4 +28,8 @@ cursor.execute(sql)
 r = cursor.fetchone()
 print(r[0])
 
-
+dict1={}
+dict1[0]=1
+dict1[2]=3
+for item in dict1:
+    print(item)
