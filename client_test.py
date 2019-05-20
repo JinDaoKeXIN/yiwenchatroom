@@ -105,16 +105,24 @@ def enter_chat():
     elif pid == 0:#发消息给用户
         send_msg(dict_online)
     else:#接收消息
-        pass
+        recv_msg()
 
 def send_msg(dict1):
     '''
-
+    多进程接收与发送消息
     :param dict1:
     :return:
     '''
     while True:
         target = input('发送对象')
+        if target =='###outline':
+            sockfd.send(B'O')
+            data = sockfd.recv(1024).decode()
+            if data == 'OUT':
+                sys.exit()
+            else:
+                print(data)
+                continue
         while True:
             target_address = dict1[target]
             data = input('>>>>')
@@ -123,6 +131,9 @@ def send_msg(dict1):
             msg = 'C %s %s'%(target_address,data)
             sockfd.send(msg.encode())
 
+def recv_msg():
+    data = sockfd.recv(10240).decode()
+    print(data)
 
 
 

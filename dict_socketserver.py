@@ -28,6 +28,8 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                     self.show_customer()
                 elif self.data[0] == 'C':
                     self.chat_each(self.data)
+                elif self.data[0] == 'O':
+
 
 
             except ConnectionResetError as e:
@@ -143,9 +145,20 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def chat_each(self,data):
         tmp = data.split(' ')
-        send_addr =tmp[1]
+        self.request =tmp[1]
         msg = tmp[2]
+        self.request.send(msg.encode())
 
+    def do_out(self):
+        cursor = self.db.cursor()
+        sql_outline = "update customer_statue set address = 'outline' where address = '%s' "%self.client_address[0]
+        try:
+            cursor.execute(sql_outline)
+            self.db.commit()
+            self.request.send(B'OUT')
+        except Exception as e:
+            print(e)
+            self.request.send('登出失败'.encode())
 
 
 if __name__ == '__main__':
